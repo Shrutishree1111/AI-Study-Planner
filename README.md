@@ -2,7 +2,6 @@
 
 StudyAI is a modern, AI-powered web application designed to help students build consistent study habits. It generates personalized 7-day schedules, tracks consistency via streaks and heatmaps, and provides a focused environment with a built-in Pomodoro timer.
 
-![StudyAI Dashboard](file:///C:/Users/shrut/.gemini/antigravity/brain/d0e81954-33b1-4b43-bb74-6940e8dcdb6a/media__1771694389099.png)
 
 ## ✨ Key Features
 

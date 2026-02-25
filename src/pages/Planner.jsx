@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, RotateCcw, Check, SkipForward, Plus, Clock } from 'lucide-react';
+import { Play, Pause, RotateCcw, Check, SkipForward, Plus, Clock, Timer, ClipboardList, Inbox, BarChart4 } from 'lucide-react';
 import { storage } from '../lib/storage.js';
 import { logSession, getTodayProgress } from '../lib/streaks.js';
 import toast from 'react-hot-toast';
@@ -20,8 +20,8 @@ function PomodoroTimer({ onComplete }) {
                     if (r <= 1) {
                         clearInterval(intervalRef.current);
                         setRunning(false);
-                        if (mode === 'work') { toast.success('🎉 Focus session complete! Take a break.'); onComplete && onComplete(25); setMode('break'); setRemaining(5 * 60); }
-                        else { toast('Break over! Ready to focus again?', { icon: '💪' }); setMode('work'); setRemaining(25 * 60); }
+                        if (mode === 'work') { toast.success('Focus session complete! Take a break.', { icon: '☕' }); onComplete && onComplete(25); setMode('break'); setRemaining(5 * 60); }
+                        else { toast('Break over! Ready to focus again?', { icon: '⚡' }); setMode('work'); setRemaining(25 * 60); }
                         return 0;
                     }
                     return r - 1;
@@ -38,11 +38,29 @@ function PomodoroTimer({ onComplete }) {
     const reset = () => { setRunning(false); setRemaining(mode === 'work' ? 25 * 60 : 5 * 60); };
 
     return (
-        <div className="glass p-6 text-center">
-            <h3 style={{ fontFamily: 'Outfit', fontWeight: 700, fontSize: '16px', marginBottom: '4px' }}>⏱️ Pomodoro Timer</h3>
-            <div style={{ fontSize: '12px', color: mode === 'work' ? 'var(--primary)' : 'var(--accent)', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                {mode === 'work' ? 'Focus Session' : 'Break Time'}
+        <motion.div
+            animate={{
+                borderColor: running ? 'rgba(108,99,255,0.4)' : 'rgba(108,99,255,0.2)',
+                boxShadow: running ? '0 0 20px rgba(108,99,255,0.2)' : '0 0 0px rgba(108,99,255,0)'
+            }}
+            className="glass p-6 text-center"
+        >
+            <div className="flex items-center justify-center gap-2 mb-1">
+                <Timer size={18} className="text-primary" />
+                <h3 style={{ fontFamily: 'Outfit', fontWeight: 700, fontSize: '16px' }}>Pomodoro Timer</h3>
             </div>
+
+            <AnimatePresence mode="wait">
+                <motion.div
+                    key={mode}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -5 }}
+                    style={{ fontSize: '12px', color: mode === 'work' ? 'var(--primary)' : 'var(--accent)', marginBottom: '20px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 700 }}
+                >
+                    {mode === 'work' ? 'Focus Session' : 'Break Time'}
+                </motion.div>
+            </AnimatePresence>
 
             {/* Circular progress */}
             <div style={{ position: 'relative', width: '140px', height: '140px', margin: '0 auto 20px' }}>
@@ -53,7 +71,13 @@ function PomodoroTimer({ onComplete }) {
                         strokeDashoffset={`${2 * Math.PI * 60 * (1 - pct / 100)}`} style={{ transition: 'stroke-dashoffset 1s linear' }} />
                 </svg>
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Outfit', fontWeight: 800, fontSize: '32px' }}>
-                    {mins}:{secs}
+                    <motion.div
+                        animate={{ scale: running ? [1, 1.05, 1] : 1 }}
+                        transition={{ repeat: Infinity, duration: 2 }}
+                        style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Outfit', fontWeight: 800, fontSize: '32px' }}
+                    >
+                        {mins}:{secs}
+                    </motion.div>
                 </div>
             </div>
 
@@ -61,16 +85,23 @@ function PomodoroTimer({ onComplete }) {
                 <button onClick={reset} style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
                     <RotateCcw size={16} />
                 </button>
-                <button onClick={() => setRunning(r => !r)} className="btn-primary" style={{ width: '56px', height: '56px', borderRadius: '50%', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => setRunning(r => !r)}
+                    className="btn-primary"
+                    style={{ width: '56px', height: '56px', borderRadius: '50%', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
                     {running ? <Pause size={22} /> : <Play size={22} />}
-                </button>
+                </motion.button>
                 <button onClick={() => { setMode(m => m === 'work' ? 'break' : 'work'); setRunning(false); setRemaining(mode === 'work' ? 5 * 60 : 25 * 60); }}
                     style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
                     <SkipForward size={16} />
                 </button>
             </div>
-        </div>
+        </motion.div>
     );
+
 }
 
 export default function Planner() {
@@ -124,9 +155,12 @@ export default function Planner() {
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass p-6">
                     {/* Header */}
                     <div className="flex items-center justify-between mb-2">
-                        <h2 style={{ fontFamily: 'Outfit', fontWeight: 700, fontSize: '18px' }}>
-                            📋 Today's Sessions
-                        </h2>
+                        <div className="flex items-center gap-2">
+                            <ClipboardList className="text-primary" size={20} />
+                            <h2 style={{ fontFamily: 'Outfit', fontWeight: 700, fontSize: '18px' }}>
+                                Today's Sessions
+                            </h2>
+                        </div>
                         <button onClick={() => setShowAdd(s => !s)} className="btn-secondary"
                             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', fontSize: '13px' }}>
                             <Plus size={14} /> Add Task
@@ -166,7 +200,9 @@ export default function Planner() {
                     {/* Session list */}
                     {sessions.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                            <div style={{ fontSize: '48px', marginBottom: '12px' }}>📭</div>
+                            <div className="flex justify-center mb-3">
+                                <Inbox size={48} className="opacity-20" />
+                            </div>
                             <p style={{ fontSize: '14px' }}>No sessions for today.<br />Generate a schedule or add tasks manually.</p>
                         </div>
                     ) : (
@@ -198,7 +234,10 @@ export default function Planner() {
             <div className="flex flex-col gap-4">
                 <PomodoroTimer onComplete={(mins) => { setProgress(getTodayProgress()); }} />
                 <div className="glass p-6">
-                    <h3 style={{ fontFamily: 'Outfit', fontWeight: 700, fontSize: '16px', marginBottom: '12px' }}>📊 Today's Stats</h3>
+                    <div className="flex items-center gap-2 mb-4">
+                        <BarChart4 size={18} className="text-primary" />
+                        <h3 style={{ fontFamily: 'Outfit', fontWeight: 700, fontSize: '16px' }}>Today's Stats</h3>
+                    </div>
                     {[
                         { label: 'Sessions done', value: `${completed}/${sessions.length}` },
                         { label: 'Minutes studied', value: `${progress.completedMinutes}` },

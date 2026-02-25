@@ -1,27 +1,70 @@
 // Gemini API client
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+// Switching to 1.5-Flash for better stability and lower latency
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+
+/**
+ * Robust JSON cleaner for AI responses
+ * Strips markdown code blocks and whitespace
+ */
+const cleanJsonResponse = (text) => {
+  try {
+    // Remove markdown code blocks if present
+    let cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    // Take everything from the first '{' to the last '}'
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+    }
+    return JSON.parse(cleaned);
+  } catch (e) {
+    console.error('Failed to parse AI JSON:', e, 'Raw text:', text);
+    return null;
+  }
+};
 
 export const callGemini = async (prompt, apiKey) => {
-    const key = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
-    if (!key) throw new Error('No Gemini API key provided');
+  const key = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
+  if (!key) throw new Error('No Gemini API key provided');
 
+  try {
     const res = await fetch(`${GEMINI_URL}?key=${key}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
-        })
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 4096,
+          response_mime_type: "application/json" // Hint for JSON output (if supported)
+        }
+      })
     });
-    if (!res.ok) throw new Error(`Gemini API error: ${res.status}`);
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(`Gemini API error ${res.status}: ${errorData?.error?.message || res.statusText}`);
+    }
+
     const data = await res.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    // If the prompt asked for JSON, try to clean and parse it
+    if (prompt.toLowerCase().includes('return only valid json')) {
+      return cleanJsonResponse(text);
+    }
+
+    return text;
+  } catch (error) {
+    console.error('Gemini API Call Failed:', error);
+    throw error;
+  }
 };
 
 export const generateSchedulePrompt = (user) => {
-    const { subjects, dailyGoal, studyStyle, exams } = user;
-    return `You are a professional study planner. Create a personalized 7-day study schedule.
-
+  const { subjects, dailyGoal, studyStyle, exams } = user;
+  return `You are a professional study planner. Create a personalized 7-day study schedule.
+    
 Student Profile:
 - Subjects: ${subjects.join(', ')}
 - Daily study goal: ${dailyGoal} hours
@@ -30,24 +73,22 @@ Student Profile:
 
 Instructions:
 - Prioritize subjects with closer exam dates
-- Distribute subjects evenly but weight by exam proximity
-- Include specific topics (not just "study Math" — say "Algebra: Quadratic Equations")
-- Vary the topics across days
-- Fit sessions within the daily hour goal
+- For each day, include 2-4 slots that fit within the ${dailyGoal} hour limit.
+- Vary the topics to prevent burnout.
 
-Return ONLY valid JSON in this exact format (no markdown, no backticks, no explanation):
+Return ONLY valid JSON in this exact structure:
 {
   "week": [
     {
       "day": "Monday",
-      "date": "",
+      "date": "2024-05-20",
       "slots": [
         {
-          "id": "unique-id",
-          "time": "09:00 - 10:30",
+          "id": "unique_id_1",
+          "time": "09:00 - 10:00",
           "subject": "Math",
-          "topic": "Algebra: Quadratic Equations",
-          "duration": 90,
+          "topic": "Algebra",
+          "duration": 60,
           "type": "study"
         }
       ]
@@ -57,20 +98,20 @@ Return ONLY valid JSON in this exact format (no markdown, no backticks, no expla
 };
 
 export const generateDailyTip = async (subjects, apiKey) => {
-    const key = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
-    if (!key) return getRandomTip();
-    try {
-        const prompt = `Give one short, specific, actionable study tip for a student studying ${subjects.slice(0, 3).join(', ')}. Maximum 2 sentences. Be encouraging and practical. No preamble.`;
-        return await callGemini(prompt, key);
-    } catch { return getRandomTip(); }
+  const key = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
+  if (!key) return getRandomTip();
+  try {
+    const prompt = `Give one short, specific, actionable study tip for a student studying ${subjects.slice(0, 3).join(', ')}. Maximum 2 sentences. No preamble.`;
+    return await callGemini(prompt, key);
+  } catch { return getRandomTip(); }
 };
 
 const TIPS = [
-    "Use active recall: close your notes and try to write down everything you remember. This is 3x more effective than re-reading.",
-    "Study in 25-minute focused blocks with 5-minute breaks. Your brain consolidates memory during rest.",
-    "Teach what you just learned to an imaginary student. If you can explain it simply, you understand it deeply.",
-    "Start your session with the hardest topic when your energy is highest. Save easier reviews for later.",
-    "Space your reviews — revisit yesterday's material for 5 minutes before starting today's new content.",
-    "Write practice questions as you study. Testing yourself is twice as effective as highlighting.",
+  "Use active recall: close your notes and try to write down everything you remember. This is 3x more effective than re-reading.",
+  "Study in 25-minute focused blocks with 5-minute breaks. Your brain consolidates memory during rest.",
+  "Teach what you just learned to an imaginary student. If you can explain it simply, you understand it deeply.",
+  "Start your session with the hardest topic when your energy is highest. Save easier reviews for later.",
+  "Space your reviews — revisit yesterday's material for 5 minutes before starting today's new content.",
+  "Write practice questions as you study. Testing yourself is twice as effective as highlighting.",
 ];
 const getRandomTip = () => TIPS[Math.floor(Math.random() * TIPS.length)];

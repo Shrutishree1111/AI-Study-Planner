@@ -2,8 +2,9 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
     LayoutDashboard, Calendar, BookOpen, BarChart2,
-    Bell, Settings, Zap, X
+    Bell, Settings, Zap, X, ShieldCheck, Flame
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const links = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -15,6 +16,13 @@ const links = [
 ];
 
 export default function Sidebar({ open, onClose }) {
+    const { user } = useAuth();
+
+    const navLinks = [...links];
+    if (user?.role === 'admin') {
+        navLinks.push({ to: '/admin', icon: ShieldCheck, label: 'Admin Panel' });
+    }
+
     return (
         <>
             {/* Mobile backdrop */}
@@ -50,7 +58,7 @@ export default function Sidebar({ open, onClose }) {
 
                 {/* Nav */}
                 <nav className="px-3 flex flex-col gap-1">
-                    {links.map(({ to, icon: Icon, label }) => (
+                    {navLinks.map(({ to, icon: Icon, label }) => (
                         <NavLink
                             key={to}
                             to={to}
@@ -80,8 +88,8 @@ export default function Sidebar({ open, onClose }) {
 
                 {/* Bottom CTA */}
                 <div className="absolute bottom-6 left-0 right-0 px-4">
-                    <div className="glass p-4 rounded-xl text-center">
-                        <div style={{ fontSize: '24px', marginBottom: '6px' }}>🔥</div>
+                    <div className="glass p-4 rounded-xl text-center flex flex-col items-center">
+                        <Flame size={28} className="text-[#FFB347] mb-1" />
                         <div style={{ fontFamily: 'Outfit', fontWeight: 700, fontSize: '22px', color: '#FFB347' }} id="sidebar-streak">0</div>
                         <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Day Streak</div>
                     </div>
